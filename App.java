@@ -1,66 +1,107 @@
-package dennisMohle.myZoo.com;
+import java.io.*;
+import java.util.*;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.util.ArrayList;
-import java.util.Scanner;
 
+ // This is the main application that processes zoo animals from a file.
 public class App {
     public static void main(String[] args) {
         System.out.println("\n\n Welcome to My Zoo Program\n\n");
-        System.out.println("\n Number of animals is: " + Animal.numOfAnimals);
 
-        // local variables
-        String name;
-        String species;
-        int age;
-
-        // ArrayList of Animal objects
+        // list to store animal objects
         ArrayList<Animal> animals = new ArrayList<>();
 
-        // Open an external file, parse it line by line, and get age and species
-        String filePath = "C:/2024_Spring/midtermFiles/arrivingAnimals.txt";
-        File file = new File(filePath);
+        // HashMap to store names from animalNames.txt
+        HashMap<String, Queue<String>> namesMap = loadAnimalNames("animalNames.txt");
 
-        try (Scanner scanner = new Scanner(file)) {
-            while (scanner.hasNextLine()) {
-                String line = scanner.nextLine();
+        // Read and process arriving animals
+        readArrivingAnimals("arrivingAnimals.txt", namesMap, animals);
 
-                // Age is in the first element of the array named parts
-                String[] parts = line.split(", ");
+        // Output results
+        System.out.println("\nNumber of animals: " + Animal.numOfAnimals);
+        for (Animal animal : animals) {
+            System.out.println(animal);
+        }
 
-                // Check if the line has at least 1 part
-                if (parts.length >= 1) {
-                    String ageAndSpecies = parts[0];
-                    System.out.println("ageAndSpecies: " + ageAndSpecies );
+        // Save report to file
+        writeReport("newAnimals.txt", animals);
+    }
 
-                    // Get age out of 'ageAndSpecies'
-                    String[] theParts = ageAndSpecies.split(" ");
-                    for (int i=0; i<5; i++) {
-                        System.out.println("theParts[" + i + "] is " + theParts[i]);
-                    }
-                    age = Integer.parseInt(theParts[0]);
-                    species = theParts[4];
+  
+     // Reads names from animalNames.txt and stores them in a HashMap.
+    private static HashMap<String, Queue<String>> loadAnimalNames(String filePath) {
+        HashMap<String, Queue<String>> namesMap = new HashMap<>();
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            String currentSpecies = null;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
 
-                    // Create a new animal object.
-                    Animal myAnimal = new Animal("name needed", species, age);
-
-                    // Add the new Animal object to the ArrayList of Animals
-                    animals.add(myAnimal);
+                if (line.contains("Names:")) {
+                    currentSpecies = line.replace(" Names:", "").trim();
+                    namesMap.put(currentSpecies, new LinkedList<>());
+                } else if (currentSpecies != null) {
+                    String[] names = line.split(", ");
+                    Collections.addAll(namesMap.get(currentSpecies), names);
                 }
-                System.out.println("\n Number of animals is: " + Animal.numOfAnimals);
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading animal names: " + e.getMessage());
+        }
+        return namesMap;
+    }
+    
+     // Reads arriving animals from arrivingAnimals.txt and creates animal objects.
+    private static void readArrivingAnimals(String filePath, HashMap<String, Queue<String>> namesMap, ArrayList<Animal> animals) {
+        try (Scanner scanner = new Scanner(new File(filePath))) {
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine().trim();
+                if (line.isEmpty()) continue;
+
+                // Extract age and species
+                String[] words = line.split(" ");
+                int age = Integer.parseInt(words[0]);
+                String species = words[4];
+
+                // Capitalize species name properly
+                species = species.substring(0, 1).toUpperCase() + species.substring(1).toLowerCase();
+
+                // Assign a name or use default
+                String name = namesMap.getOrDefault(species, new LinkedList<>()).poll();
+                if (name == null) name = "Unnamed " + species;
+
+                // Create the correct animal subclass
+                Animal animal = createAnimal(species, name, age);
+                if (animal != null) animals.add(animal);
             }
         } catch (FileNotFoundException e) {
             System.out.println("File not found: " + filePath);
-            e.printStackTrace();
         }
+    }
 
-        // We now have an arrayList of Animals. Let's output them!
-        for (Animal animal : animals){
-            System.out.println(animal);
-            System.out.println("Animal name: " + animal.getName() + ", Age: " + animal.getAge() + ", Species: " + animal.getSpecies());
+    
+     // Creates an animal object based on species.
+    private static Animal createAnimal(String species, String name, int age) {
+        if (species.equals("Hyena")) return new Hyena(name, age);
+        if (species.equals("Lion")) return new Lion(name, age);
+        if (species.equals("Tiger")) return new Tiger(name, age);
+        if (species.equals("Bear")) return new Bear(name, age);
+        return null;
+    }
+
+    
+     // Writes the list of animals to newAnimals.txt.
+    private static void writeReport(String filePath, ArrayList<Animal> animals) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
+            writer.write("Zoo New Animals Report\n");
+            writer.write("======================\n");
+
+            for (Animal animal : animals) {
+                writer.write(animal + "\n");
+            }
+            System.out.println("Report saved to " + filePath);
+        } catch (IOException e) {
+            System.out.println("Error writing report: " + e.getMessage());
         }
-        System.out.println("\n Number of animals is: " + Animal.numOfAnimals);
-
     }
 }
